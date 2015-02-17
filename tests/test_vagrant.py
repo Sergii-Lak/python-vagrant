@@ -14,8 +14,10 @@ TEST_BOX_NAME. This box is not deleted after the test suite runs in order
 to avoid downloading of the box file on every run.
 '''
 
+from __future__ import print_function
 
 import os
+import locale
 import re
 import unittest
 import shutil
@@ -129,6 +131,20 @@ def teardown_vm():
         # remove Vagrantfile created by setup.
         os.unlink(os.path.join(TD, "Vagrantfile"))
 
+
+def parse_ssh_config(cwd, vm_name=''):
+    '''
+    Calls vagrant ssh-config and returns dictionnary of the values.
+    '''
+    command = "vagrant ssh-config " + vm_name
+    ssh_config = subprocess.check_output(command, cwd=cwd, shell=True)
+    parsed_config = dict()
+    encoding = locale.getpreferredencoding()
+    for line in ssh_config.splitlines():
+        if line.strip() and not line.strip().startswith(b'#'):
+            decoded = line.decode(encoding).strip().split(None, 1)
+            parsed_config[decoded[0]] = decoded[1]
+    return parsed_config
 
 
 @with_setup(make_setup_vm(), teardown_vm)
@@ -245,11 +261,8 @@ def test_vm_config():
     '''
     v = vagrant.Vagrant(TD)
     v.up()
-    command = "vagrant ssh-config"
-    ssh_config = subprocess.check_output(command, cwd=TD, shell=True)
-    parsed_config = dict(line.strip().split(None, 1) for line in
-                            ssh_config.splitlines() if line.strip() and not
-                            line.strip().startswith('#'))
+
+    parsed_config = parse_ssh_config(cwd=TD)
 
     user = v.user()
     expected_user = parsed_config["User"]
@@ -315,36 +328,36 @@ def test_vm_sandbox_mode():
     assert sandbox_status == "on", "After bringing the VM up again the status should be 'on', " + "got:'{}'".format(sandbox_status)
 
     test_file_contents = _read_test_file(v)
-    print test_file_contents
+    print(test_file_contents)
     eq_(test_file_contents, None, "There should be no test file")
 
     _write_test_file(v, "foo")
     test_file_contents = _read_test_file(v)
-    print test_file_contents
+    print(test_file_contents)
     eq_(test_file_contents, "foo", "The test file should read 'foo'")
 
     v.sandbox_rollback()
     time.sleep(10)  # https://github.com/jedi4ever/sahara/issues/16
 
     test_file_contents = _read_test_file(v)
-    print test_file_contents
+    print(test_file_contents)
     eq_(test_file_contents, None, "There should be no test file")
 
     _write_test_file(v, "foo")
     test_file_contents = _read_test_file(v)
-    print test_file_contents
+    print(test_file_contents)
     eq_(test_file_contents, "foo", "The test file should read 'foo'")
     v.sandbox_commit()
     _write_test_file(v, "bar")
     test_file_contents = _read_test_file(v)
-    print test_file_contents
+    print(test_file_contents)
     eq_(test_file_contents, "bar", "The test file should read 'bar'")
 
     v.sandbox_rollback()
     time.sleep(10)  # https://github.com/jedi4ever/sahara/issues/16
 
     test_file_contents = _read_test_file(v)
-    print test_file_contents
+    print(test_file_contents)
     eq_(test_file_contents, "foo", "The test file should read 'foo'")
 
     sandbox_status = v._parse_vagrant_sandbox_status("Usage: ...")
@@ -402,8 +415,8 @@ def test_provisioning():
     eq_(test_file_contents, None, "There should be no test file after up()")
 
     v.provision()
-    test_file_contents = _read_test_file(v)
-    print "Contents: {}".format(test_file_contents)
+    test_file_contents = _read_test_file(v).decode(locale.getpreferredencoding())
+    print("Contents: {}".format(test_file_contents))
     eq_(test_file_contents, "foo", "The test file should contain 'foo'")
 
 
@@ -448,11 +461,8 @@ def test_multivm_config():
     '''
     v = vagrant.Vagrant(TD, quiet_stdout=False, quiet_stderr=False)
     v.up(vm_name=VM_1)
-    command = "vagrant ssh-config " + VM_1
-    ssh_config = subprocess.check_output(command, cwd=TD, shell=True)
-    parsed_config = dict(line.strip().split(None, 1) for line in
-                            ssh_config.splitlines() if line.strip() and not
-                            line.strip().startswith('#'))
+
+    parsed_config = parse_ssh_config(cwd=TD, vm_name=VM_1)
 
     user = v.user(vm_name=VM_1)
     expected_user = parsed_config["User"]

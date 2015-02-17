@@ -10,6 +10,7 @@ Documentation of usage, testing, installation, etc., can be found at
 https://github.com/todddeluca/python-vagrant.
 '''
 
+import locale
 import collections
 import contextlib
 import itertools
@@ -871,8 +872,9 @@ class Vagrant(object):
         # Make subprocess command
         command = self._make_vagrant_command(args)
         with self.err_cm() as err_fh:
+            encoding = locale.getpreferredencoding()
             return subprocess.check_output(command, cwd=self.root,
-                                           env=self.env, stderr=err_fh)
+                                           env=self.env, stderr=err_fh).decode(encoding)
 
 
 class SandboxVagrant(Vagrant):
